@@ -6,11 +6,19 @@ import moment from 'moment'
 import Web3 from "web3"
 
 export default function EmojiPage() {
+  const storedEvents = JSON.parse(localStorage.getItem('events')) || [];
+
   const { hash } = useParams()
   const localizer = momentLocalizer(moment)
   const [web3, setWeb3] = useState(null)
   const [account, setAccount] = useState(null)
+  const [events, setEvents] = useState(storedEvents)
 
+
+  // Save new events at the localStorage
+  useEffect(() => {
+    localStorage.setItem('events', JSON.stringify(events));
+  }, [events]);
 
   // Try to connect to the web3 provider
   useEffect(() => { 
@@ -35,6 +43,7 @@ export default function EmojiPage() {
     connectWeb3()
   }, [])
 
+  // Decode the path into emojis
   const decodedEmojis = useMemo(() => {
     const decodedEmojis = []
     
@@ -47,8 +56,30 @@ export default function EmojiPage() {
     return decodedEmojis
   }, [hash])
 
-  const handleSelectSlot = (slotInfo) => {
-    console.log(slotInfo)
+
+  // Create the message and adds the emojis to the selected date
+  const handleSelectSlot = async (slotInfo) => {
+    if (web3 && account) {
+      const {start, end} = slotInfo
+      const message = JSON.stringify({ decodedEmojis, start, end })
+      const signature = await web3.eth.personal.sign(
+        message,
+        account,
+      )
+
+      let event = {
+        signature,
+        title: decodedEmojis,
+        start,
+        end,
+        path: hash
+      }
+
+      setEvents([
+        ...events,
+        event
+      ])
+    }
   };
 
   return (
@@ -74,7 +105,7 @@ export default function EmojiPage() {
           <Calendar
             localizer={localizer}
             selectable
-            events={[]}
+            events={events}
             style={{ height: 500 }}
             onSelectSlot={handleSelectSlot}
           />
